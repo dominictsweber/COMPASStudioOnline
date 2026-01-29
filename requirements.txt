@@ -1,0 +1,4 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+compas==2.14.1
+compas_view2==0.11.0

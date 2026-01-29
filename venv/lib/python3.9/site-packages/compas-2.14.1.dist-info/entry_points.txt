@@ -1,0 +1,2 @@
+[console_scripts]
+compas_rpc = compas.rpc.__main__:main

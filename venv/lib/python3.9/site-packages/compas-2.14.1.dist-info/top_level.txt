@@ -1,0 +1,4 @@
+compas
+compas_blender
+compas_ghpython
+compas_rhino

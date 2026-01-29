@@ -1,0 +1,3 @@
+[console_scripts]
+compas_rpc = compas.rpc.__main__:main
+install_in_rhino = compas_rhino.install_with_pip:main
