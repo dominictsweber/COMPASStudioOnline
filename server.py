@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # --- CONFIG ---
-PORT = 5001
+PORT = int(os.environ.get('PORT', 5001))
 HOST = '0.0.0.0'
 
 # --- GLOBAL STORE ---
