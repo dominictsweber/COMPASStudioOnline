@@ -1,1 +1,4 @@
 _BACKUP_DO_NOT_DELETE/
+.venv/
+__pycache__/
+*.pyc
