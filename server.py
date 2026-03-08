@@ -410,7 +410,7 @@ def extract_json_block(text, start_tag, end_tag):
     return clean_text, extracted_data
 
 if __name__ == '__main__':
-    app.run(port=PORT, debug=True)
+    app.run(host=HOST, port=PORT, debug=True)
 
 # --- AI ENDPOINTS ---
 
