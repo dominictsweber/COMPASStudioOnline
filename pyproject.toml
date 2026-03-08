@@ -3,7 +3,7 @@ name = "compas-web-viewport"
 version = "0.1.0"
 description = "A web-based viewport application for COMPAS"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "compas==2.15.0",
     "flask==3.1.2",

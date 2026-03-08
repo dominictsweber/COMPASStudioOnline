@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+src/compas_web_viewport/__init__.py
+src/compas_web_viewport/kernel_utils.py
+src/compas_web_viewport/server.py
+src/compas_web_viewport.egg-info/PKG-INFO
+src/compas_web_viewport.egg-info/SOURCES.txt
+src/compas_web_viewport.egg-info/dependency_links.txt
+src/compas_web_viewport.egg-info/entry_points.txt
+src/compas_web_viewport.egg-info/requires.txt
+src/compas_web_viewport.egg-info/top_level.txt

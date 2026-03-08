@@ -1,0 +1,2 @@
+[console_scripts]
+compas-viewport = compas_web_viewport:start_server
