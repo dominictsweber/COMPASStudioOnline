@@ -26,4 +26,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 5001
 
 # Run server.py when the container launches
-CMD ["python", "server.py"]
+CMD ["compas-viewport"]

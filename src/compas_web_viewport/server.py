@@ -49,7 +49,7 @@ load_globals()
 
 # Load the introspection code from the separate file
 try:
-    with open('kernel_utils.py', 'r') as f:
+    with open(os.path.join(os.path.dirname(__file__), 'kernel_utils.py'), 'r') as f:
         INTROSPECTION_CODE = f.read()
 except FileNotFoundError:
     print("Warning: kernel_utils.py not found. Introspection will fail.")
@@ -318,66 +318,6 @@ def collect_kernel_output(kc, msg_id):
         "geometry": geometry_data,
         "globals": new_globals
     }
-    output_text = []
-    error_text = []
-    geometry_data = [] 
-    new_globals = {}
-    
-    start_time = time.time()
-    
-    while True:
-        try:
-            # 10s Timeout for safety
-            if time.time() - start_time > 10:
-                error_text.append("[Server Timeout] Execution took too long.")
-                break
-
-            msg = kc.get_iopub_msg(timeout=0.5) 
-            content = msg['content']
-            msg_type = msg['header']['msg_type']
-            
-            if msg['parent_header'].get('msg_id') != msg_id:
-                continue 
-            
-            if msg_type == 'stream':
-                text = content['text']
-                
-                # Extract structured data blocks
-                if '<<<VP_DATA_START>>>' in text:
-                     text, data = extract_json_block(text, '<<<VP_DATA_START>>>', '<<<VP_DATA_END>>>')
-                     if data: geometry_data = data
-                
-                if '<<<GLOBALS_START>>>' in text:
-                    text, data = extract_json_block(text, '<<<GLOBALS_START>>>', '<<<GLOBALS_END>>>')
-                    if data: new_globals = data
-
-                if text: output_text.append(text)
-                    
-            elif msg_type == 'execute_result':
-                data = content['data']
-                if 'text/plain' in data:
-                    output_text.append(data['text/plain'])
-                    
-            elif msg_type == 'error':
-                error_text.append('\n'.join(content.get('traceback', [])))
-                
-            elif msg_type == 'status':
-                if content['execution_state'] == 'idle':
-                    break 
-                    
-        except queue.Empty:
-            continue
-        except Exception as e:
-            error_text.append(f"[Server Error]: {str(e)}")
-            break
-
-    return {
-        "success": len(error_text) == 0,
-        "output": "".join(output_text),
-        "error": "\n".join(error_text),
-        "geometry": geometry_data,
-        "globals": new_globals
-    }
 
 def extract_json_block(text, start_tag, end_tag):
     """Refined extraction of JSON blocks from text stream."""
@@ -411,7 +351,6 @@ def extract_json_block(text, start_tag, end_tag):
 
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=True)
-
 # --- AI ENDPOINTS ---
 
 @app.route('/api/ai_edit', methods=['POST'])

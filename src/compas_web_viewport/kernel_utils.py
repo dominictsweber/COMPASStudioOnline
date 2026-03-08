@@ -52,8 +52,8 @@ def _serialize_compass_data():
             _is_global = name.startswith('glb_')
             return [{'name': name, 'type': 'Mesh', 'data': data, 'isGlobal': _is_global}]
             
-        # 2. Handle Lists (Explicitly requested)
-        if isinstance(obj, list):
+        # 2. Handle Lists/Tuples
+        if isinstance(obj, (list, tuple)):
             for i, item in enumerate(obj):
                 # Recursive call with indexed name. Dictionaries are ignored.
                 items.extend(_extract_vp_items(f"{name}[{i}]", item, depth+1))
