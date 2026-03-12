@@ -11,14 +11,14 @@ const App = {
                 { 
                     type: 'file',
                     name: 'imports.py',
-                    content: 'from compas.geometry import Box\n',
-                    // content: "import compas.geometry as cg\nimport compas.datastructures as cd\n\nfrom compas.geometry import Box\nfrom compas.geometry import Sphere\nfrom compas.geometry import Cylinder\nfrom compas.geometry import Cone\nfrom compas.geometry import Torus\nfrom compas.geometry import Mesh\nfrom compas.geometry import NurbsSurface\nfrom compas.geometry import Line\nfrom compas.geometry import Point\nfrom compas.geometry import Polyline\nfrom compas.geometry import Circle\n",
+                    content: '# Anything imported here is accessible in the entire project.\n\nfrom compas.geometry import Box, Frame, Point\n',
+                    // content: "# Anything imported here is accessible in the entire project.\nimport compas.geometry as cg\nimport compas.datastructures as cd\n\nfrom compas.geometry import Box\nfrom compas.geometry import Sphere\nfrom compas.geometry import Cylinder\nfrom compas.geometry import Cone\nfrom compas.geometry import Torus\nfrom compas.geometry import Mesh\nfrom compas.geometry import NurbsSurface\nfrom compas.geometry import Line\nfrom compas.geometry import Point\nfrom compas.geometry import Polyline\nfrom compas.geometry import Circle\n",
                     lastOutput: null
                 },
                 { 
                     type: 'file',
                     name: 'user_example.py', 
-                    content: "# Check COMPAS classes in the panel left to import them to your entire project.\n\n# Using the syntax //# range (x, y)// will create a slider. For example:\na = 0 # range(0, 10)\n\n# Using the syntax //# switch (var1, var2, var3)// will create a switch. For example:\ncurrent_variable = var1 # switch(var1, var2, var3)\n\n# Use the prefix glb_ in front of variable names to use them in other files.\n\n# Click on geometry in the viewport to add their corresponding variable name to the current editor.",
+                    content: "# Activating Live coding will run your code as soon as you stop typing.\n\n# Using the syntax //# range (x, y)// will create a slider. For example:\na = 0 # range(0, 10)\n\n# Using the syntax //# switch (var1, var2, var3)// will create a switch. For example:\ncurrent_variable = var1 # switch(var1, var2, var3)\n\n# Use the prefix glb_ in front of variable names to use them in other files.\n\n# Click on geometry in the viewport to add their corresponding variable name to the current editor.",
                     lastOutput: null
                 }
             ]
@@ -424,13 +424,18 @@ const App = {
                     }
                 }
 
+                const isNewFile = !node.name;
+
                 node.name = val;
                 node.isRenaming = false;
                 
-                // Reset state because paths changed
-                this.state.openFiles.clear(); 
-                this.state.activeFile = null;
-                this.state.editors = {};
+                // Only reset state if we are renaming an EXISTING file/folder (paths changed).
+                // If it's a new file, existing paths are valid, so don't close them.
+                if (!isNewFile) {
+                    this.state.openFiles.clear(); 
+                    this.state.activeFile = null;
+                    this.state.editors = {};
+                }
                 
                 this.renderExplorer();
                 isCommitting = false;
@@ -875,6 +880,9 @@ const App = {
             // Decorators / Widgets Store
             let activeWidgets = [];
 
+            // Setup Live Coding Debounce (Moved up for widget access)
+            let debounceTimer = null;
+
             // Helper to parsing sliders
             const updateWidgets = () => {
                 // Clear old widgets
@@ -917,8 +925,10 @@ const App = {
                         rangeInput.style.width = '100px';
                         rangeInput.style.margin = '0';
                         rangeInput.onmousedown = (e) => e.stopPropagation();
-                        
+
                         rangeInput.oninput = (e) => {
+                            if (debounceTimer) clearTimeout(debounceTimer);
+
                             const val = parseFloat(e.target.value);
                             const currentLine = model.getLineContent(index + 1);
                             const currentMatch = /([a-zA-Z0-9_]+)\s*=\s*([-+]?[0-9]*\.?[0-9]+)(\s*#\s*range\(\s*[-+]?[0-9]*\.?[0-9]+\s*,\s*[-+]?[0-9]*\.?[0-9]+\s*\))/.exec(currentLine);
@@ -937,6 +947,8 @@ const App = {
                                     text: newValueStr,
                                     forceMoveMarkers: true
                                 }]);
+                                
+                                this.runCode(path, node);
                             }
                         };
 
@@ -1083,6 +1095,8 @@ const App = {
                                     text: newVal,
                                     forceMoveMarkers: true
                                  }]);
+                                 if (debounceTimer) clearTimeout(debounceTimer);
+                                 this.runCode(path, node);
                              };
                              return btn;
                         };
@@ -1157,9 +1171,6 @@ const App = {
                 });
             };
 
-            // Setup Live Coding Debounce
-            let debounceTimer = null;
-            
             // Run initial slider scan
             updateWidgets();
 
@@ -1246,8 +1257,18 @@ const App = {
     },
 
     async runCode(path, node) {
+        // Serialization: Prevent overlapping runs
+        if (node.isRunning) {
+            node.pendingRun = true;
+            return;
+        }
+        node.isRunning = true;
+
         const editor = this.state.editors[path];
-        if (!editor) return;
+        if (!editor) {
+            node.isRunning = false;
+            return;
+        }
 
         const safeId = path.replace(/[^a-zA-Z0-9]/g, '_');
         const outElem = document.getElementById(`output-${safeId}`);
@@ -1275,10 +1296,10 @@ const App = {
 
         const importsNode = findImportsFile(this.state.root);
         if (importsNode) {
-            console.log("Found imports.py, injecting content...");
+            // console.log("Found imports.py, injecting content...");
             importsCode = importsNode.content || "";
         } else {
-            console.log("No imports.py found.");
+            // console.log("No imports.py found.");
         }
 
         try {
@@ -1313,6 +1334,12 @@ const App = {
             if (outElem) {
                 outElem.classList.add('error');
                 outElem.innerText = `[Fetch Error]: ${err.message}`;
+            }
+        } finally {
+            node.isRunning = false;
+            if (node.pendingRun) {
+                node.pendingRun = false;
+                this.runCode(path, node);
             }
         }
     },

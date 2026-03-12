@@ -27,7 +27,8 @@ class ViewportManager {
         this.scene.background = new THREE.Color(0xf0f0f0); // Soft grey background
 
         this.camera = new THREE.PerspectiveCamera(75, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
-        this.camera.position.set(20, 20, 20);
+        this.camera.up.set(0, 0, 1); // Z-up convention
+        this.camera.position.set(-30, -30, 30); // Standard ISO view: X=Right, Y=Left, Z=Up
         this.camera.lookAt(0, 0, 0);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -57,48 +58,129 @@ class ViewportManager {
 
     _addHelpers() {
         // Lighter grid: Center=0x888888, Grid=0xcccccc
-        this.scene.add(new THREE.GridHelper(50, 50, 0x888888, 0xcccccc));
+        const grid = new THREE.GridHelper(50, 50, 0x888888, 0xcccccc);
+        grid.rotation.x = Math.PI / 2; // Rotate to lie on XY plane (Z-up)
+        this.scene.add(grid);
         this.scene.add(new THREE.AxesHelper(5));
     }
 
     _addControls() {
-        // Simple orbital controls
+        this.target = new THREE.Vector3(0, 0, 0);
+        
+        // Spherical coordinates for Orbit (Z-up)
+        // r, phi (polar: angle from Z), theta (azimuthal: angle from X on XY plane)
+        let radius = this.camera.position.distanceTo(this.target);
+        const relPos = new THREE.Vector3().subVectors(this.camera.position, this.target);
+        
+        let theta = Math.atan2(relPos.y, relPos.x); // XY Plane angle
+        let phi = Math.acos(relPos.z / radius);     // Angle from Z axis
+
+        // Interaction State
         let isDragging = false;
         let prevPos = { x: 0, y: 0 };
+        let mouseButton = -1; // 0: Left, 2: Right
+
+        const updateCamera = () => {
+            // Convert spherical to Z-Up Cartesian
+            // z = r cos(phi)
+            // x = r sin(phi) cos(theta)
+            // y = r sin(phi) sin(theta)
+            
+            // Constrain phi to avoid flipping (0 to PI)
+            phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi));
+
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.sin(phi) * Math.sin(theta);
+            const z = radius * Math.cos(phi);
+
+            this.camera.position.set(x, y, z).add(this.target);
+            this.camera.lookAt(this.target);
+        };
+
+        const handlePan = (deltaX, deltaY) => {
+            // Pan logic: Move target and camera in camera-local X/Y plane
+            // Speed proportional to distance
+            const speed = radius * 0.002; // Adjust sensitivity
+            
+            // Camera Up and Right vectors
+            const forward = new THREE.Vector3().subVectors(this.target, this.camera.position).normalize();
+            const up = this.camera.up.clone(); // (0,0,1)
+            
+            // Note: Standard 'right' is forward x up
+            const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+            
+            // Local Up (perpendicular to view direction and right vector)
+            const localUp = new THREE.Vector3().crossVectors(right, forward).normalize();
+            
+            // Inverse deltaX for expected feel
+            const panVec = new THREE.Vector3()
+                .addScaledVector(right, -deltaX * speed)
+                .addScaledVector(localUp, deltaY * speed);
+                
+            this.target.add(panVec);
+            updateCamera();
+        };
+
+        const handleRotate = (deltaX, deltaY) => {
+            theta -= deltaX * 0.005; 
+            phi -= deltaY * 0.005; 
+            updateCamera();
+        };
 
         this.container.addEventListener('mousedown', (e) => {
             isDragging = true;
+            mouseButton = e.button;
             prevPos = { x: e.clientX, y: e.clientY };
+            e.preventDefault(); // Stop text selection
         });
+
+        // Prevent context menu to allow Right-Click Drag
+        this.container.addEventListener('contextmenu', (e) => e.preventDefault());
 
         this.container.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
             const delta = { x: e.clientX - prevPos.x, y: e.clientY - prevPos.y };
-            
-            // Rotate Camera
-            const radius = this.camera.position.length();
-            let theta = Math.atan2(this.camera.position.x, this.camera.position.z);
-            let phi = Math.acos(this.camera.position.y / radius);
-
-            theta -= delta.x * 0.005;
-            phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi - delta.y * 0.005));
-
-            this.camera.position.x = radius * Math.sin(phi) * Math.sin(theta);
-            this.camera.position.y = radius * Math.cos(phi);
-            this.camera.position.z = radius * Math.sin(phi) * Math.cos(theta);
-            this.camera.lookAt(0, 0, 0);
-
             prevPos = { x: e.clientX, y: e.clientY };
+
+            if (mouseButton === 0) {
+                // Left Click: Rotate (Invert X delta for natural feel if needed, otherwise positive)
+                handleRotate(delta.x, delta.y);
+            } else if (mouseButton === 2) {
+                // Right Click (or 2-finger drag/click): Pan
+                handlePan(delta.x, delta.y);
+            }
         });
 
-        window.addEventListener('mouseup', () => isDragging = false);
-        this.container.addEventListener('click', (e) => this.handleSelection(e));
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            mouseButton = -1;
+        });
+
+        this.container.addEventListener('click', (e) => {
+            // Only select if not dragged (or small drag)
+            // For now simple pass through, but ideally check drift
+            this.handleSelection(e);
+        });
         
         this.container.addEventListener('wheel', (e) => {
            e.preventDefault();
-           const zoom = 0.05 * this.camera.position.length() * Math.sign(e.deltaY);
-           this.camera.position.add(this.camera.position.clone().normalize().multiplyScalar(zoom));
-        });
+           
+           // If Shift pressed, Pan on both axes
+           if (e.shiftKey) {
+               handlePan(e.deltaX, e.deltaY);
+               return;
+           }
+
+           // Zoom (deltaY)
+           const zoomSpeed = 0.001 * radius;
+           radius += e.deltaY * zoomSpeed;
+           radius = Math.max(0.1, radius); // Min distance
+           
+           updateCamera();
+        }, { passive: false });
+        
+        // Initial setup
+        updateCamera();
     }
 
     // --- API ---
@@ -161,9 +243,26 @@ class ViewportManager {
         if (indices.length) geometry.setIndex(indices);
         geometry.computeVertexNormals();
 
-        const color = 0x999999;
-        const material = new THREE.MeshPhongMaterial({ color: color, side: THREE.DoubleSide });
+        // Matte finish, light grey, 90% opaque
+        const color = 0xcccccc; 
+        const material = new THREE.MeshLambertMaterial({ 
+            color: color, 
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.9,
+            polygonOffset: true, 
+            polygonOffsetFactor: 1, 
+            polygonOffsetUnits: 1 
+        });
+        
         const mesh = new THREE.Mesh(geometry, material);
+
+        // Thin dark grey outlines (ridges/edges)
+        // Using EdgesGeometry with threshold to catch sharp edges but ignore triangulation diagonals on flat quads
+        const edgesGeo = new THREE.EdgesGeometry(geometry, 15); 
+        const edgesMat = new THREE.LineBasicMaterial({ color: 0x333333, opacity: 0.5, transparent: true });
+        const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+        mesh.add(edges);
         
         mesh.userData = { variableName: name, originalColor: color };
         return mesh;

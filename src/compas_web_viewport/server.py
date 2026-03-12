@@ -349,8 +349,6 @@ def extract_json_block(text, start_tag, end_tag):
         
     return clean_text, extracted_data
 
-if __name__ == '__main__':
-    app.run(host=HOST, port=PORT, debug=True)
 # --- AI ENDPOINTS ---
 
 @app.route('/api/ai_edit', methods=['POST'])
@@ -389,3 +387,6 @@ def ai_edit():
         mock_code = f"# AI Generated Code for: {prompt}\n# Please configure API Key in server.py\n"
 
     return jsonify({"code": mock_code})
+
+if __name__ == '__main__':
+    app.run(host=HOST, port=PORT, debug=True)
