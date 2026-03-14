@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Work</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #007acc;
+            --border-color: #ddd;
+            --danger-color: #d32f2f;
+            --success-color: #4caf50;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        /* Removed Header */
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .project-card, .new-project-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 180px;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .project-card:hover, .new-project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            border-color: var(--accent-color);
+        }
+
+        /* New Project Card Style */
+        .new-project-card {
+            border: 2px dashed #ccc;
+            background: transparent;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            color: #888;
+        }
+        .new-project-card:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            background: rgba(0, 122, 204, 0.05);
+        }
+        .new-project-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .new-project-text {
+            font-weight: 500;
+        }
+
+        /* Project Card Content */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .project-icon {
+            font-size: 24px; /* Smaller icon */
+            color: var(--accent-color);
+            opacity: 0.8;
+            background: rgba(0,122,204,0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #ccc;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover { background: #f0f0f0; color: #555; }
+        .btn-delete:hover { background: #ffebee; color: var(--danger-color); }
+        .btn-copy:hover { background: #e8f5e9; color: var(--success-color); }
+
+        .project-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 5px;
+            word-break: break-word;
+            line-height: 1.3;
+        }
+
+        .project-key {
+            font-family: monospace;
+            font-size: 14px;
+            padding: 2px 6px;
+            background: #eee;
+            border-radius: 4px;
+            color: #555;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .project-meta {
+            font-size: 12px;
+            color: #888;
+            margin-top: auto;
+        }
+
+        /* Modal */
+        #new-project-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #new-project-modal.visible {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 320px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        
+        #new-project-modal.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent-color); }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        button.btn-modal {
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            border: none;
+        }
+
+        .btn-cancel { background: #f0f0f0; color: #333; }
+        .btn-create { background: var(--accent-color); color: white; }
+        
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000;
+        }
+        #toast.visible { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    
+    <div id="project-list" class="project-grid">
+        <div style="grid-column: 1 / -1; text-align: center; color: #aaa; margin-top: 50px;">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+        </div>
+    </div>
+
+    <!-- Modal for new project -->
+    <div id="new-project-modal">
+        <div class="modal-content">
+            <div class="modal-title">New Project Name</div>
+            <input type="text" id="project-name-input" placeholder="e.g. My Experiment" autocomplete="off">
+            <div class="modal-buttons">
+                <button class="btn-modal btn-cancel" id="btn-cancel">Cancel</button>
+                <button class="btn-modal btn-create" id="btn-create">Create</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast">
+        <i class="fas fa-check-circle" style="color: #4caf50;"></i> 
+        <span id="toast-msg">Message</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
